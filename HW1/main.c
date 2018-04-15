@@ -52,28 +52,31 @@ int main() {
     // disable JTAG to get pins back
     DDPCONbits.JTAGEN = 0;
 
-    // do your TRIS and LAT commands here
-    TRISBbits.TRISB4 = 1;
-    TRISAbits.TRISA4 = 0;
-    LATAbits.LATA4 = 1;
+   // do your TRIS and LAT commands here
+    TRISBbits.TRISB4 = 1;           // tristate register: determines if port is input = 1 or output = 0
+    TRISAbits.TRISA4 = 0;           //LED port A is an output
+    LATAbits.LATA4 = 0;             //LAtch Port A LED off
 
     __builtin_enable_interrupts();
     
    
 
     while(1) {
+        if (PORTBbits.RB4 == 1){        //push button is not pressed
 	// use _CP0_SET_COUNT(0) and _CP0_GET_COUNT() to test the PIC timing
 	// remember the core timer runs at half the sysclk
         //start the timer at 0
         _CP0_SET_COUNT(0);
-        //keep LED on
-        LATAbits.LATA4 = 1;
-        while (_CP0_GET_COUNT() <= 2000){
-            
+        //LATAbits.LATA4 = 0;
+        LATAINV = 0x10;                  //toggle LATA4 LED on
+        // leave on for 0.5 ms, 48 MHz/2 * 0.5 ms = 12,000 counts
+        while(_CP0_GET_COUNT()<12000){
+            ;
         }
-        
-
-       
-               
+        }
+        else {
+            LATAbits.LATA4 = 0;         //if button is pressed LED is off
+        }
     }
+            
 }
