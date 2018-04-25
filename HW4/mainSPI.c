@@ -71,7 +71,7 @@ void DAC_init() {
   // setup spi1
   SPI1CON = 0;              // turn off the spi module and reset it
   SPI1BUF;                  // clear the rx buffer by reading from it
-  SPI1BRG = 0x3;            // baud rate to 10 MHz [SPI4BRG = (48000000/(2*desired))-1]
+  SPI1BRG = 3;            // baud rate to 6 MHz [SPI4BRG = (48000000/(2*desired))-1]
   SPI1STATbits.SPIROV = 0;  // clear the overflow bit
   SPI1CONbits.CKE = 1;      // data changes when clock goes from hi to lo (since CKP is 0)
   SPI1CONbits.MSTEN = 1;    // master operation
@@ -99,6 +99,9 @@ void set_voltages(int chAB, char V){
     spi_io(t);                                  //LSB
     CS = 1;
 }
+
+#define PI 3.14159
+
 int main() {
 
     __builtin_disable_interrupts();
@@ -126,38 +129,35 @@ int main() {
     
     
    //initialize parameters
-    float V = 0;
-    
+     //initialize parameters
+    unsigned int V_sin = 0;
+    unsigned int V_triangle = 0;
+    float time = 0;
+    float slope = 2.56;         // slope = 0.25 Vmax / #iters in 0.1 sec; 256/100 
 
     while(1) {
-        //start the timer at 0
-        _CP0_SET_COUNT(0);
+       
         int iter = 0;
         
-        for(iter = 0; iter < 1000; iter++){
-            //triangle
+        for (iter = 0; iter <= 100; iter ++){
+             //start the timer at 0
+            _CP0_SET_COUNT(0);
+            time = time + 0.001;              //ms timestep for 1 KHz sampling frequency
+            //triangle 0 to Vmax/4: 0 - 256
             //max V = 1024
-            set_voltages(1,iter);
+            V_triangle = int(V_triangle + slope);
+            set_voltages(1,V_triangle);
             //sine wave
             //DC offset Vmax/2 = 512; f = 10Hz, Amp = 1/4 Vmax = 256
-            V = 512 + 256 * sin(2*3.14*10*iter) / 1024;
-            set_voltages(0,V);
-        }
-        for(iter = 1000; iter <= 2000; iter++){
-            //triangle
-            //max V = 1024
-            set_voltages(1,iter);
-            //sine wave
-            //DC offset Vmax/2 = 512; f = 10Hz, Amp = 1/4 Vmax = 256
-            V = 512 + 256 * sin(2*3.14*10*iter) / 1024;
-            set_voltages(0,V);
-        }
-            
-        }
- 
-        while(_CP0_GET_COUNT()<12000){
+            V_sin = 512 + 256 * sin(2*PI*10*time);
+            set_voltages(0,V_sin);
+            //delay
+            while(_CP0_GET_COUNT()<6000){               //1 KHz sampling freq: 1 ms period: 6 MHz * 1 ms = 6000 count
             ;
         }
-        
+        }
+        slope = slope * -1;
+    
+    }
+    
   }
-            
