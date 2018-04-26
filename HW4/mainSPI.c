@@ -18,7 +18,7 @@
 #pragma config OSCIOFNC = OFF // disable secondary osc
 #pragma config FPBDIV = DIV_1 // divide sysclk freq by 1 for peripheral bus clock
 #pragma config FCKSM = CSDCMD // do not enable clock switch
-#pragma config WDTPS = PS1 // use slowest wdt
+#pragma config WDTPS = PS1048576 // use slowest wdt
 #pragma config WINDIS = OFF // wdt no window mode
 #pragma config FWDTEN = OFF // wdt disabled
 #pragma config FWDTWINSZ = WINSZ_25 // wdt window at 25%
@@ -39,9 +39,13 @@
 //SPI Pins
 //A1 -> SDI (pin 3 to pin 5)
 //B14 -> SCK (pin 25 to pin 4)
-//B8 -> CS (pin 17 to pin 3)
+//A0 -> CS (pin 17 to pin 3)
 
-#define CS LATAbits.LATA1       // chip select pin
+#define CS LATAbits.LATA0       // chip select pin
+
+unsigned char spi_io(unsigned char);  // send a byte via SPI
+void DAC_init(void);                  // initiate SPI1
+void setVoltage(char, int);           // set voltage value to send to DAC
 
 // send a byte via spi and return the response
 unsigned char spi_io(unsigned char o) {
@@ -49,18 +53,20 @@ unsigned char spi_io(unsigned char o) {
   while(!SPI1STATbits.SPIRBF) { // wait to receive the byte
     ;
   }
-  return SPI1BUF;
+  return SPI1BUF;   
 }
-
+ 
 void DAC_init() {
   // set up the chip select pin as an output
   // the chip select pin is used by the DAC to indicate
   // when a command is beginning (clear CS to low) and when it
   // is ending (set CS high)
     
-  // Set peripheral pins according to output pin selection 
+  // Set peripheral pins according to output pin selection
+  SDI1Rbits.SDI1R = 0b0100; // pin B8 for SDI1
   TRISAbits.TRISA0 = 0;             //set A1 (CS) as output
   TRISAbits.TRISA1 = 0;             //set A1 as output
+  RPA0Rbits.RPA0R = 0b0011;          //set A0 as SS1
   RPA1Rbits.RPA1R = 0b0011;         //set pin as SDO1
   CS = 1;
 
@@ -71,20 +77,16 @@ void DAC_init() {
   // setup spi1
   SPI1CON = 0;              // turn off the spi module and reset it
   SPI1BUF;                  // clear the rx buffer by reading from it
-  SPI1BRG = 3;            // baud rate to 6 MHz [SPI4BRG = (48000000/(2*desired))-1]
+  SPI1BRG = 0x3;            // baud rate to 12 MHz [SPI4BRG = (48000000/(2*desired))-1]
   SPI1STATbits.SPIROV = 0;  // clear the overflow bit
   SPI1CONbits.CKE = 1;      // data changes when clock goes from hi to lo (since CKP is 0)
   SPI1CONbits.MSTEN = 1;    // master operation
   SPI1CONbits.ON = 1;       // turn on spi 1
 
-                            // send a ram set status command.
-  CS = 0;                   // enable the DAC
-  spi_io(0x01);             // ram write status
-  spi_io(0x41);             // sequential mode (mode = 0b01), hold disabled (hold = 0)
-  CS = 1;                   // finish the command
+                    
 }
 
-void set_voltages(int chAB, char V){
+void set_voltages(char chAB, int V){
     unsigned short t;
     //chAB = channel select 1 = write to DAC_B, 0 = write to DAC_A
     //V = voltage value (10 bits) for the MCP4912 DAC
@@ -92,7 +94,7 @@ void set_voltages(int chAB, char V){
     //A/B  = channel select, BUF = Vref input buffer control, GA = gain select,  SHDN = shutdown, D9-0 = data, x =  unused
     t = chAB << 15;                             //select the channel to write to
     t = t | 0b0111000000000000;                 //BUF = 1 (buffered), GA = 1 (x1),SHDN enable
-    t = t | ((V & 0b111111111) <<2);            //set the DATA bits with the voltage values
+    t = t | ((V & 0b1111111111) <<2);            //set the DATA bits with the voltage values
     //send DAC command
     CS = 0;
     spi_io(t>>8);                               //MSB
@@ -101,7 +103,6 @@ void set_voltages(int chAB, char V){
 }
 
 #define PI 3.14159
-
 int main() {
 
     __builtin_disable_interrupts();
@@ -129,11 +130,10 @@ int main() {
     
     
    //initialize parameters
-     //initialize parameters
-    unsigned int V_sin = 0;
-    unsigned int V_triangle = 0;
-    float time = 0;
-    float slope = 2.56;         // slope = 0.25 Vmax / #iters in 0.1 sec; 256/100 
+    double V_sin = 0;
+    double V_triangle = 0;
+    double time = 0;
+    double slope = 2.56;         // slope = 0.25 Vmax / #iters in 0.1 sec; 256/100 
 
     while(1) {
        
@@ -141,23 +141,24 @@ int main() {
         
         for (iter = 0; iter <= 100; iter ++){
              //start the timer at 0
-            _CP0_SET_COUNT(0);
-            time = time + 0.001;              //ms timestep for 1 KHz sampling frequency
-            //triangle 0 to Vmax/4: 0 - 256
-            //max V = 1024
-            V_triangle = int(V_triangle + slope);
-            set_voltages(1,V_triangle);
-            //sine wave
-            //DC offset Vmax/2 = 512; f = 10Hz, Amp = 1/4 Vmax = 256
-            V_sin = 512 + 256 * sin(2*PI*10*time);
-            set_voltages(0,V_sin);
+        _CP0_SET_COUNT(0);
+           
+        //triangle 0 to Vmax/4: 0 - 256
+        //max V = 1024
+        V_triangle = V_triangle + slope;
+        set_voltages(1,V_triangle);
+        //sine wave
+        //DC offset Vmax/2 = 512; f = 10Hz, Amp = 1/4 Vmax = 256
+        V_sin = 512.0 + 512.0 * sin(2.0 * PI * 10.0 *time);
+        set_voltages(0,V_sin);
+        time = time + 0.001;              //ms timestep for 1 KHz sampling frequency
             //delay
-            while(_CP0_GET_COUNT()<6000){               //1 KHz sampling freq: 1 ms period: 6 MHz * 1 ms = 6000 count
+        while(_CP0_GET_COUNT()<6000){               //1 KHz sampling freq: 1 ms period: 6 MHz * 1 ms = 6000 count
             ;
         }
         }
         slope = slope * -1;
     
     }
-    
-  }
+    return 0;
+}
