@@ -36,21 +36,58 @@
 #pragma config FUSBIDIO = ON // USB pins controlled by USB module
 #pragma config FVBUSONIO = ON // USB BUSON controlled by USB module
 
-void delay(void);
+
+
+unsigned char getExpander(unsigned char addr){
+    //i2C read sequence S -> OP -> W -> ADDR -> SR -> OP -> R -> DOUT -> P
+    // S = start; OP = device opcode; W =  write; ADDR = register adress -> SR = restart; R = read; DOUT =data out; P = stop
+    //device opcode: 0 1 0 0 A2 A1 A0 R/W; A2 A1 A0 = address, R/W read = 1  write = 0;
+    i2c_master_start();                                     //start
+    i2c_master_send(0b01000000);            //write 
+    i2c_master_send(addr);                  //register address 
+    i2c_master_restart();                                //restart
+    i2c_master_send(0b01000001);            //read
+    unsigned char DOUT = i2c_master_recv();                              //receive data
+    i2c_master_ack(1);
+    i2c_master_stop();
+    return DOUT;
+    
+}
+
+void setExpander(unsigned char addr, unsigned char DIN){
+    i2c_master_start();
+    i2c_master_send(0b01000000);           //write 
+    i2c_master_send(addr);                 //register address                              
+    i2c_master_send(DIN);            //write
+    i2c_master_stop();
+}
+    
+                               
+    
+void initExpander(void){
+    //clear analog input pins
+    ANSELBbits.ANSB2 = 0;           //SCL
+    ANSELBbits.ANSB3 = 0;           //SDA
+    i2c_master_setup();             //BRG = 53 for 400KHZ
+    //set IO directions
+    //IODIR address 0x00 ; IO7 IO6 IO5 IO4 IO3 IO2 IO1 IO0; 1 = input, 0 = output
+    //set G4-G7 as input
+    setExpander(0x00, 0b11110000);
+    //output latch
+    setExpander(0x0A, 0b00000000);         
+    
+       
+}
+
+
+void initExpander();
+
 
 int main() {
     // some initialization function to set the right speed setting
-    char buf[100] = {};                       // buffer for sending messages to the user
-    unsigned char master_write0 = 0xCD;       // first byte that master writes
-    unsigned char master_write1 = 0x91;       // second byte that master writes
-    unsigned char master_read0  = 0x00;       // first received byte
-    unsigned char master_read1  = 0x00;       // second received byte
-
-    // some initialization function to set the right speed setting
-    Startup(); 
+   
     __builtin_disable_interrupts();
     
-    i2c_master_setup();                       // init I2C2, which we use as a master
     
     // set the CP0 CONFIG register to indicate that kseg0 is cacheable (0x3)
     __builtin_mtc0(_CP0_CONFIG, _CP0_CONFIG_SELECT, 0xa4210583);
@@ -68,10 +105,6 @@ int main() {
     TRISBbits.TRISB4 = 1;           // tristate register: determines if port is input = 1 or output = 0
     TRISAbits.TRISA4 = 0;           //LED port A is an output
     LATAbits.LATA4 = 0;             //LED off
-    //initialize pins
-    ANSELBbits.ANSB2 = 0;
-    ANSELBbits.ANSB3 = 0;
-    i2c_master_setup();             //BRG = 53 for 400KHZ
     
     
     
@@ -88,7 +121,7 @@ int main() {
         //LATAbits.LATA4 = 0;
         LATAINV = 0x10;                  //toggle LATA4 LED on
         // leave on for 0.5 ms, 48 MHz/2 * 0.5 ms = 12,000 counts
-        while(_CP0_GET_COUNT()<12000){
+        while(_CP0_GET_COUNT()<120000){
             ;
         }
         }
@@ -96,22 +129,17 @@ int main() {
             LATAbits.LATA4 = 0;         //if button is pressed LED is off
         }
         
-        //i2C2
-        i2c_master_start();                     // Begin the start sequence
-        i2c_master_send(SLAVE_ADDR << 1);       // send the slave address, left shifted by 1, 
-                                            // which clears bit 0, indicating a write
-        i2c_master_send(master_write0);         // send a byte to the slave       
-        i2c_master_send(master_write1);         // send another byte to the slave
-        i2c_master_restart();                   // send a RESTART so we can begin reading 
-        i2c_master_send((SLAVE_ADDR << 1) | 1); // send slave address, left shifted by 1,
-                                            // and then a 1 in lsb, indicating read
-        master_read0 = i2c_master_recv();       // receive a byte from the bus
-        i2c_master_ack(0);                      // send ACK (0): master wants another byte!
-        master_read1 = i2c_master_recv();       // receive another byte from the bus
-        i2c_master_ack(1);                      // send NACK (1):  master needs no more bytes
-        i2c_master_stop();                      // send STOP:  end transmission, give up bus
-
+        unsigned char DIN = getExpander(0x09);
+        
+        if(DIN & 0b10000000 ){
+            setExpander(0x0A, 0b00000001);
+        }
+        else {
+            setExpander(0x0A,0b00000000);
+        }
     }
+                            
+    
             
 }
     
