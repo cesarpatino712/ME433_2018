@@ -72,15 +72,15 @@ void initExpander(void){
     //set IO directions
     //IODIR address 0x00 ; IO7 IO6 IO5 IO4 IO3 IO2 IO1 IO0; 1 = input, 0 = output
     //set G4-G7 as input
-    setExpander(0x00, 0b11110000);
-    //output latch
-    setExpander(0x0A, 0b00000000);         
+    setExpander(0x00, 0b11110000);       
     
        
 }
 
 
 void initExpander();
+unsigned char getExpander(unsigned char addr);
+void setExpander(unsigned char addr, unsigned char DIN);
 
 
 int main() {
@@ -106,7 +106,7 @@ int main() {
     TRISAbits.TRISA4 = 0;           //LED port A is an output
     LATAbits.LATA4 = 0;             //LED off
     
-    
+    initExpander();
     
     __builtin_enable_interrupts();
     
@@ -121,7 +121,7 @@ int main() {
         //LATAbits.LATA4 = 0;
         LATAINV = 0x10;                  //toggle LATA4 LED on
         // leave on for 0.5 ms, 48 MHz/2 * 0.5 ms = 12,000 counts
-        while(_CP0_GET_COUNT()<120000){
+        while(_CP0_GET_COUNT()<1200000){
             ;
         }
         }
@@ -131,7 +131,7 @@ int main() {
         
         unsigned char DIN = getExpander(0x09);
         
-        if(DIN & 0b10000000 ){
+        if((DIN & 0b10000000) == 0b10000000 ){
             setExpander(0x0A, 0b00000001);
         }
         else {
