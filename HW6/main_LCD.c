@@ -1,7 +1,7 @@
 #include<xc.h>           // processor SFR definitions
 #include<stdio.h>  
 #include<sys/attribs.h>  // __ISR macro
-#include<ST7735.h>  
+#include"ST7735.h"  
 
 
 // DEVCFG0
@@ -48,10 +48,10 @@ void drawChar(char x, char y, char message, short colorON, short colorOFF){
     int j = 0;
     char pixels;
     
-    for(col = 0; col = 5; col++){
+    for(col = 0; col < 5; col++){
         pixels = ASCII[message - 0x20][col];
-        for(j = 0; j = 8; j++){
-            if ((pixels >> j) & 1, x + col <128, y < 160){
+        for(j = 0; j < 8; j++){
+            if ((pixels >> j) & 1){
                 LCD_drawPixel(x + col, y + j, colorON);
             }
             else {
@@ -67,6 +67,15 @@ void drawString(char x, char y, char* message, short colorOn, short colorOFF){
         drawChar(x + 5 * i, y, message[i], colorOn, colorOFF);
         i++;
     }
+}
+
+void drawProgressBar(char x, char y,int length, short colorON){
+    int i = 0;
+    
+    for(i = 0; i < length; i++){
+        LCD_drawPixel(x + i, y, colorON);
+    }
+    
 }
     
 
@@ -93,8 +102,11 @@ int main() {
 
     __builtin_enable_interrupts();
     
+   LCD_init(); 
+   char message[30];
+   sprintf(message,"HELLO WORLD");
+   LCD_clearScreen(BLACK);
    
-
     while(1) {
         if (PORTBbits.RB4 == 1){        //push button is not pressed
 	// use _CP0_SET_COUNT(0) and _CP0_GET_COUNT() to test the PIC timing
@@ -103,20 +115,26 @@ int main() {
         _CP0_SET_COUNT(0);
         //LATAbits.LATA4 = 0;
         LATAINV = 0x10;                  //toggle LATA4 LED on
-        // leave on for 0.5 ms, 48 MHz/2 * 0.5 ms = 12,000 counts
-        while(_CP0_GET_COUNT()<12000){
-            ;
+        
+        drawString(28, 32, message, RED, BLACK);
+        int k = 0;
+        for(k = 0;k < 100; k++){
+            // 10 Hz delay leave on for 0.1 ms, 48 MHz/2 * 0.1 ms = 24000000/10 counts
+            while(_CP0_GET_COUNT()<24000000/10){
+                ;
+            }
+            drawProgressBar(10, 60, k, YELLOW);
         }
+        drawProgressBar(10, 60, 100, BLACK);
         }
         else {
             LATAbits.LATA4 = 0;         //if button is pressed LED is off
         }
-        char message[30];
-        sprintf(message,"hello world");
-        drawString(1, 1, message, BLACK, WHITE);
-    }
-                                                                        
+        }
+        
 }
+                                                                        
+
     
     
  
