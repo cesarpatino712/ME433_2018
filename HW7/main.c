@@ -45,6 +45,14 @@
 #define CTRL2_G 0b10001000                 //gyroscope 1.66kHz, 1000 dps
 #define CTRL3_C 0b00000100                 //IF_INC bit enabled for sequential read
 
+void LCD_init(void);
+void I2C_read_multiple(unsigned char SLAVEaddr, unsigned char addr, unsigned char * data, int length);
+unsigned char getIMU(unsigned char SLAVEaddr, unsigned char addr);
+void setIMU(unsigned char SLAVEaddr, unsigned char addr, unsigned char DIN);
+void initIMU(void);
+void drawChar(char x, char y, char message, short colorON, short colorOFF);
+void drawString(char x, char y, char* message, short colorOn, short colorOFF);
+void drawProgressBar(char x, char y,int length, short colorON, short colorOFF);
 
 void I2C_read_multiple(unsigned char SLAVEaddr, unsigned char addr, unsigned char * data, int length){
     //i2C read sequence S -> OP -> W -> ADDR -> SR -> OP -> R -> DOUT -> P
@@ -151,17 +159,7 @@ void drawProgressBar(char x, char y,int length, short colorON, short colorOFF){
     }
 }
 
-       
-void I2C_read_multiple(unsigned char SLAVEaddr, unsigned char addr, unsigned char * data, int length);
-unsigned char getIMU(unsigned char SLAVEaddr, unsigned char addr);
-void setIMU(unsigned char SLAVEaddr, unsigned char addr, unsigned char DIN);
-void initIMU();
-void drawChar(char x, char y, char message, short colorON, short colorOFF);
-void drawString(char x, char y, char* message, short colorOn, short colorOFF);
-void drawProgressBar(char x, char y,int length, short colorON, short colorOFF);
-
-
-
+   
 int main() {
     // some initialization function to set the right speed setting
    
@@ -185,36 +183,68 @@ int main() {
     TRISAbits.TRISA4 = 0;           //LED port A is an output
     LATAbits.LATA4 = 0;             //LED off
     
-    
     initIMU();
-    
+    LCD_init();
     
     __builtin_enable_interrupts();
     
+    
+    char message[30];
+    //sprintf(message,"Hello World");
+    LCD_clearScreen(BLACK);
+    unsigned char data [14];
    
 
     while(1) {
-        if (PORTBbits.RB4 == 1){        //push button is not pressed
+        //if (PORTBbits.RB4 == 1){        //push button is not pressed
 	// use _CP0_SET_COUNT(0) and _CP0_GET_COUNT() to test the PIC timing
 	// remember the core timer runs at half the sysclk
         //start the timer at 0
         _CP0_SET_COUNT(0);
         //LATAbits.LATA4 = 0;
+        
+        
+        I2C_read_multiple(I2C_ADDR, 0x20, data, 14);
+        
+        //reconstruct signed short by shifting high byte and ORing with the low byte
+        //angular rate sensor pitch axis (x)
+        //Gyroscope readings
+        signed short OUTX_G = ((data[4] << 8)| data[3]);
+        sprintf(message,"OUTX_G = %d",OUTX_G);
+        drawString(28, 12, message, RED, BLACK);
+        signed short OUTY_G = ((data[6] << 8)| data[5]);
+        sprintf(message,"OUTY_G = %d",OUTY_G);
+        drawString(28, 22, message, RED, BLACK);
+        signed short OUTZ_G = ((data[8] << 8)| data[7]);
+        sprintf(message,"OUTZ_G = %d",OUTZ_G);
+        drawString(28, 32, message, RED, BLACK);
+        //Accelerometer Readings
+        signed short OUTX_XL = ((data[10] << 8)| data[9]);
+        sprintf(message,"OUTX_XL = %d",OUTX_XL);
+        drawString(28, 42, message, CYAN, BLACK);
+        signed short OUTY_XL = ((data[12] << 8)| data[11]);
+        sprintf(message,"OUTY_XL = %d",OUTY_XL);
+        drawString(28, 52, message, CYAN, BLACK);
+        signed short OUTZ_XL = ((data[14] << 8)| data[13]);
+        sprintf(message,"OUTZ_XL = %d",OUTZ_XL);
+        drawString(28, 62, message, CYAN, BLACK);
+        
+        
+        
+        // 20 Hz delay
+        while(_CP0_GET_COUNT()<24000000/20){
+           
+        }
         LATAINV = 0x10;                  //toggle LATA4 LED on
         
-        I2C_read_multiple(I2C_ADDR, 0x20, unsigned char * data, 13);
-        
-        // leave on for 0.5 ms, 48 MHz/2 * 0.5 ms = 12,000 counts
-        while(_CP0_GET_COUNT()<120000){
-            ;
-        }
-        }
-        else {
+        /*else {
             LATAbits.LATA4 = 0;         //if button is pressed LED is off
         }
+      */
         
         
     }
+    return 0;
                         
 
     
