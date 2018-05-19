@@ -67,7 +67,7 @@ void I2C_read_multiple(unsigned char SLAVEaddr, unsigned char addr, unsigned cha
     i2c_master_send((SLAVEaddr<<1)|1);            //read
     for (i = 0; i < length; i++){
         data[i] = i2c_master_recv();
-        if (i < length){
+        if (i < length-1){
             i2c_master_ack(0);              //keep reading
         }
         else{
