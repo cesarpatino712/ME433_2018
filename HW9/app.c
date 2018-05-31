@@ -520,12 +520,14 @@ void APP_Tasks(void) {
                 USB_DEVICE_CDC_Read(USB_DEVICE_CDC_INDEX_0,
                         &appData.readTransferHandle, appData.readBuffer,
                         APP_READ_BUFFER_SIZE);
+                
 
                         /* AT THIS POINT, appData.readBuffer[0] CONTAINS A LETTER
                         THAT WAS SENT FROM THE COMPUTER */
                         /* YOU COULD PUT AN IF STATEMENT HERE TO DETERMINE WHICH LETTER
                         WAS RECEIVED (USUALLY IT IS THE NULL CHARACTER BECAUSE NOTHING WAS
                       TYPED) */
+                
 
                 if (appData.readTransferHandle == USB_DEVICE_CDC_TRANSFER_HANDLE_INVALID) {
                     appData.state = APP_STATE_ERROR;
@@ -546,7 +548,7 @@ void APP_Tasks(void) {
              * The isReadComplete flag gets updated in the CDC event handler. */
 
              /* WAIT FOR 5HZ TO PASS OR UNTIL A LETTER IS RECEIVED */
-            if (appData.isReadComplete || _CP0_GET_COUNT() - startTime > (48000000 / 2 / 100)) {
+            if (appData.isReadComplete && appData.readBuffer[0] == 'r'){ // || _CP0_GET_COUNT() - startTime > (48000000 / 2 / 100)) {
                 appData.state = APP_STATE_SCHEDULE_WRITE;
             }
 
@@ -575,17 +577,27 @@ void APP_Tasks(void) {
             unsigned char data [13];
            
 
-            while(1) {
+            
           
             _CP0_SET_COUNT(0);
             LATAINV = 0x10;                  //toggle LATA4 LED on
-       
+            
+            for (i = 0;i <=  100; i++) {
          
             I2C_read_multiple(I2C_ADDR, 0x20, data, 14);
         
             //reconstruct signed short by shifting high byte and ORing with the low byte
             //angular rate sensor pitch axis (x)
-           
+           //Gyroscope readings
+            signed short OUTX_G = ((data[3] << 8)| data[2]);
+            sprintf(message,"OUTX_G = %d",OUTX_G);
+            drawString(28, 12, message, RED, BLACK);
+            signed short OUTY_G = ((data[5] << 8)| data[4]);
+            sprintf(message,"OUTY_G = %d",OUTY_G);
+            drawString(28, 22, message, RED, BLACK);
+            signed short OUTZ_G = ((data[7] << 8)| data[6]);
+            sprintf(message,"OUTZ_G = %d",OUTZ_G);
+            drawString(28, 32, message, RED, BLACK);
              //Accelerometer Readings
             signed short OUTX_XL = ((data[9] << 8)| data[8]);
             sprintf(message,"OUTX_XL = %d",OUTX_XL);
@@ -600,28 +612,33 @@ void APP_Tasks(void) {
         
         
                 // 20 Hz delay
-            while(_CP0_GET_COUNT()<24000000/5){
+            while(_CP0_GET_COUNT()<24000000/100){
            
             }
             //write accelerometer data to computer
-            len = sprintf(dataOut, "%d\t\t\t%d\t\t\t%d\r\n", OUTX_XL, OUTY_XL, OUTZ_XL);
+            len = sprintf(dataOut, "%d\t%d\t%d\t%d\t%d\t%d\r\n", OUTX_G, OUTY_G, OUTZ_G,OUTX_XL, OUTY_XL, OUTZ_XL);
            
-            i++; // increment the index so we see a change in the text
+            //i++; // increment the index so we see a change in the text
             /* IF A LETTER WAS RECEIVED, ECHO IT BACK SO THE USER CAN SEE IT */
-            if (appData.isReadComplete) {
+            /*if (appData.isReadComplete) {
                 USB_DEVICE_CDC_Write(USB_DEVICE_CDC_INDEX_0,
                         &appData.writeTransferHandle,
                         appData.readBuffer, 1,
                         USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
             }
             /* ELSE SEND THE MESSAGE YOU WANTED TO SEND */
-            else {
+           //else {
                 USB_DEVICE_CDC_Write(USB_DEVICE_CDC_INDEX_0,
                         &appData.writeTransferHandle, dataOut, len,
                         USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
                 startTime = _CP0_GET_COUNT(); // reset the timer for accurate delays
+            //}
+               
             }
-            }
+            
+          appData.isWriteComplete = true;
+                
+                
             break;
             
     
@@ -646,9 +663,3 @@ void APP_Tasks(void) {
             break;
     }
 }
-
-
-
-/*******************************************************************************
- End of File
- */
