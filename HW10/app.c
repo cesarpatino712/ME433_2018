@@ -72,7 +72,7 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 
 uint8_t APP_MAKE_BUFFER_DMA_READY dataOut[APP_READ_BUFFER_SIZE];
 uint8_t APP_MAKE_BUFFER_DMA_READY readBuffer[APP_READ_BUFFER_SIZE];
-int len, i = 0, j = 0, ii = 3;
+int len, i = 0, j = 0,jj = 0, ii = 3;
 int startTime = 0; // to remember the loop time
 //FIR 
 
@@ -555,7 +555,7 @@ void APP_Tasks(void) {
              * The isReadComplete flag gets updated in the CDC event handler. */
 
              /* WAIT FOR 5HZ TO PASS OR UNTIL A LETTER IS RECEIVED */
-            if (appData.isReadComplete ){//|| _CP0_GET_COUNT() - startTime > (48000000 / 2 / 100)){ // || _CP0_GET_COUNT() - startTime > (48000000 / 2 / 100)) {
+            if (appData.isReadComplete ){//|| _CP0_GET_COUNT() - startTime > (48000000 / 2 / 100))
                 appData.state = APP_STATE_SCHEDULE_WRITE;
             }
 
@@ -574,7 +574,9 @@ void APP_Tasks(void) {
             appData.writeTransferHandle = USB_DEVICE_CDC_TRANSFER_HANDLE_INVALID;
             appData.isWriteComplete = false;
             appData.state = APP_STATE_WAIT_FOR_WRITE_COMPLETE;
-
+            
+            _CP0_SET_COUNT(0);
+            LATAINV = 0x10;                  //toggle LATA4 LED on
             /* PUT THE TEXT YOU WANT TO SEND TO THE COMPUTER IN dataOut
             AND REMEMBER THE NUMBER OF CHARACTERS IN len */
             /* THIS IS WHERE YOU CAN READ YOUR IMU, PRINT TO THE LCD, ETC */
@@ -582,20 +584,18 @@ void APP_Tasks(void) {
             //sprintf(message,"Hello World");
             LCD_clearScreen(BLACK);
             unsigned char data [13];
-            int16 P = 3;                          //moving average points
+            int16 P = 7;                          //moving average points
             int16 div = 5;                       //scale to avoid overflow
-            int16 rawData[103];
-            int16 MAFdata = 0;
-            for (i = 0; i <= 103; i++){
+            int16 rawData[107];
+            int16 IIRdata[107];         
+            //int16 MAFdata = 0;
+            for (i = 0; i <= 100 + P; i++){
                 rawData[i] = 0;
+                IIRdata[i] = 0;
                 
             }
            
-
-            _CP0_SET_COUNT(0);
-            LATAINV = 0x10;                  //toggle LATA4 LED on
-            
-            for (ii = 3;ii <=  103; ii++) {
+            for (ii = P;ii <=  100 + P; ii++) {
          
             I2C_read_multiple(I2C_ADDR, 0x20, data, 14);
         
@@ -607,46 +607,28 @@ void APP_Tasks(void) {
             int16 OUTZ_XL = ((data[13] << 8)| data[12]);
             rawData[ii] = OUTZ_XL;
             
-            
-            ////Moving average filter MAF
-            int16 sum = 0;
-            for (j = 0; j  <= 3; j++ ){
-                sum = sum + rawData[ii-j]/div;
-            }
-            
-            MAFdata = sum/(P+1) * div ;
             //DSP Filters
             //**************************************************************************
-            int16 jj=0;
-            int kk=0;
-            int K = 2;
-            int N = 2;
-            int16 coeffs[K];
-            int16 coeffs2x[2*K];
-            int16 delayline[K];
-            int16 indata[N];
-            int16 FIRdata;
+            ////Moving average filter MAF
+            int16 MAFdata = 0;
+            for (j = 0; j  <= P; j++ ){
+                MAFdata = MAFdata + rawData[ii-j]/(P+1);
+            }
+            ///Finite Impulse Response Filter (FIR)
+            //coeffs from MATLAB b = fir1(7,0.1)
+            float coeffs [7] = {0.0174, 0.0612, 0.1662, 0.2552, 0.2552, 0.1662, 0.0612};
+            int16 FIRdata = 0;
+            for(jj = 0; jj <= P; jj++){
+                FIRdata = FIRdata + rawData[ii-jj] * coeffs[jj] ; 
+            }
+            //IIR Filter
+            float A = 0.8;
+            float B = 0.2;
+            IIRdata[ii] = A * IIRdata[ii-1] + B * rawData[ii];
+            
             
            
-            for (jj = 0; jj < K; jj++){
-                delayline[jj] = 0;
-
-            // load coefficients into coeffs here
-                coeffs[jj] = jj;
-            }
-
-                mips_fir16_setup(coeffs2x, coeffs, K);
-
-                
-	// load input data into indata
-                    for(kk = 0; kk <= N; kk++){
-                        indata[kk] = rawData[ii-kk];
-                    }
-               
-                mips_fir16(FIRdata, indata, coeffs2x, delayline, N, K, 0);
-
-	// do something with outdata
-       
+            
 
             
             //Finite impulse response (FIR) filter
@@ -665,7 +647,7 @@ void APP_Tasks(void) {
             }
             //write accelerometer data to computer
             if (appData.readBuffer[0] == 'r'){
-            len = sprintf(dataOut, "%d\t%d\t%d\r\n", OUTZ_XL,MAFdata,FIRdata);
+            len = sprintf(dataOut, "%d\t%d\t%d\t%d\r\n", OUTZ_XL,MAFdata,FIRdata,IIRdata[ii]);
             //len = sprintf(dataOut, "%d\r\n", OUTZ_XL);
             //i++; // increment the index so we see a change in the text
             /* IF A LETTER WAS RECEIVED, ECHO IT BACK SO THE USER CAN SEE IT */
