@@ -618,7 +618,7 @@ void APP_Tasks(void) {
             //coeffs from MATLAB b = fir1(7,0.1)
             float coeffs [7] = {0.0174, 0.0612, 0.1662, 0.2552, 0.2552, 0.1662, 0.0612};
             int16 FIRdata = 0;
-            for(jj = 0; jj <= P; jj++){
+            for(jj = 0; jj <= P-1; jj++){
                 FIRdata = FIRdata + rawData[ii-jj] * coeffs[jj] ; 
             }
             //IIR Filter
