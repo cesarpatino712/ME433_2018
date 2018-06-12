@@ -359,11 +359,9 @@ void APP_Initialize(void) {
 
     /* PUT YOUR LCD, IMU, AND PIN INITIALIZATIONS HERE */
     RPA0Rbits.RPA0R = 0b0101; // A0 to OC1
-    //TRISAbits.TRISA1 = 0;
-    //LATAbits.LATA1 = 0;
+   
     RPB13Rbits.RPB13R = 0b0101; // B13 to OC4
-   // TRISBbits.TRISB3 = 0;
-    //LATBbit.LATB3 = 0;
+  
     
     T2CONbits.TCKPS = 0; // Timer2 prescaler N=1 (1:1)
     PR2 = 2399; // 48000000 Hz / 20000 Hz / 1 - 1 = 2399 (20kHz PWM from 48MHz clock with 1:1 prescaler)
