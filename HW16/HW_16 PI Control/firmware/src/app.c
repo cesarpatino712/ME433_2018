@@ -67,6 +67,23 @@ uint8_t APP_MAKE_BUFFER_DMA_READY dataOut[APP_READ_BUFFER_SIZE];
 uint8_t APP_MAKE_BUFFER_DMA_READY readBuffer[APP_READ_BUFFER_SIZE];
 int len, i = 0;
 int startTime = 0; // to remember the loop time
+//motor constants
+unsigned int GearRatio = 100;
+float ref_vel5 = 0;
+float ref_vel3 = 0;
+float vel5 = 0;
+float vel3 = 0;
+float e5 = 0;
+float e3 = 0;
+//control parameters
+float Kp = 1.0;
+//float Ki = 0.1;
+float U5 = 0;
+float U5new = 0;
+float U3 = 0;
+float U3new = 0;
+float esum5 = 0;
+float esum3 = 0;
 
 // *****************************************************************************
 /* Application Data
