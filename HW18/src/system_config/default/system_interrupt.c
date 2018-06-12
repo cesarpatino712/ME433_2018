@@ -96,8 +96,6 @@ void __ISR(_TIMER_4_VECTOR, IPL4SOFT) Timer4ISR(void) {
                 }
        }
                     
-    ref_vel5 = 1;                  //step function
-    ref_vel3 = 2;
     //motor: 7 pulses per revolution; 100 gear ratio = 700 pulses/rev
     //velocity [rev/s] = encoder pulse # * GR / time : pulse #  = TMR, GR = 100, time = 1/500 HZ;
     vel5 = TMR5 * GearRatio / 500;
