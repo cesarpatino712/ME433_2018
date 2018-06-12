@@ -77,6 +77,45 @@ void __ISR(_USB_1_VECTOR, ipl4AUTO) _IntHandlerUSBInstance0(void)
 
 void __ISR(_TIMER_4_VECTOR, IPL4SOFT) Timer4ISR(void) {
   // code for PI control goes here
+    //input reference velocity(from android)
+    ref_vel5 = 1;                  //step function
+    ref_vel3 = 2;
+    //motor: 7 pulses per revolution; 100 gear ratio = 700 pulses/rev
+    //velocity [rev/s] = encoder pulse # * GR / time : pulse #  = TMR, GR = 100, time = 1/500 HZ;
+    vel5 = TMR5 * GearRatio / 500;
+    vel3 = TMR3 * GearRatio / 500;
+    //calculate the error
+    e5 = ref_vel5 - vel5;
+    e3 = ref_vel3 - vel3;
+    //multiply velocity error by controller parameters (start with P controller)
+    U5 = Kp * e5;
+    U5new = U5 + 50.0;
+    if (U5new > 100.0){
+        U5new = 100.0;
+    } else if (U5new < 0.0){
+        U5new = 0.0;
+    }
+    OC1RS = (unsigned int) ((U5new/100.0) * PR2);
+    
+    U3 = Kp * e3;
+    U3new = U3 + 50.0;
+    if (U3new > 100.0){
+        U3new = 100.0;
+    } else if (U3new < 0.0){
+        U3new = 0.0;
+    }
+    OC4RS = (unsigned int) ((U3new/100.0) * PR2);
+    
+    //error sum for integral
+    esum5 = esum5 + e5;
+    esum3 = esum3 + e3;
+    
+   //reset the encoder timers to 0 
+    TMR5 = 0;
+    TMR3 = 0;
+    
+    
+    //
 
   IFS0bits.T4IF = 0; // clear interrupt flag, last line
 }
