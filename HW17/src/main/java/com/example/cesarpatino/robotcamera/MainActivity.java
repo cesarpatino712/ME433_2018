@@ -267,8 +267,9 @@ public class MainActivity extends Activity implements TextureView.SurfaceTexture
         mTextureView.getBitmap(bmp);
 
         final Canvas c = mSurfaceHolder.lockCanvas();
-        if (c != null) {
+        /*if (c != null) {
             //int thresh = 0; // comparison value
+            int thresh = 0;
             int[] pixels = new int[bmp.getWidth()]; // pixels[] is the RGBA data
             //int[] startY = new int [480]; // which row in the bitmap to analyze to read
             int startY = 100;
@@ -276,51 +277,72 @@ public class MainActivity extends Activity implements TextureView.SurfaceTexture
             int count = 0;
             int COM = 0;
             //for(int j = 0; j <  startY.length; j ++) {
-                bmp.getPixels(pixels, 0, bmp.getWidth(), 0, startY, bmp.getWidth(), 1);
+            bmp.getPixels(pixels, 0, bmp.getWidth(), 0, startY, bmp.getWidth(), 1);
 
-                // in the row, see if there is more green than red
-                for (int i = 0; i < bmp.getWidth(); i++) {
-                    if ((green(pixels[i]) - red(pixels[i])) > thresh) {
-                        pixels[i] = rgb(0, 255, 0); // over write the pixel with pure green
-                        count_COM = count_COM + i;
-                        count = count + 1;
-                    }
-                    else {
-                        pixels[i] = rgb(0, 0, 0);
-                    }
-
+            // in the row, see if there is more green than red
+            for (int i = 0; i < bmp.getWidth(); i++) {
+                if ((green(pixels[i]) - red(pixels[i])) > thresh) {
+                    pixels[i] = rgb(0, 255, 0); // over write the pixel with pure green
+                    count_COM = count_COM + i;
+                    count = count + 1;
+                } else {
+                    pixels[i] = rgb(0, 0, 0);
                 }
 
-                COM = count_COM /count;
+            }
+
+            */
+        if (c != null) {
+            int thresh = 0; // comparison value
+            int[] pixels = new int[bmp.getWidth()]; // pixels[] is the RGBA data
+            int startY = 200; // which row in the bitmap to analyze to read
+            int count_COM = 0;
+            int count = 0;
+            int COM = 0;
+            bmp.getPixels(pixels, 0, bmp.getWidth(), 0, startY, bmp.getWidth(), 1);
+
+            // in the row, see if there is more green than red
+            for (int i = 0; i < bmp.getWidth(); i++) {
+                if ((red(pixels[i]) - green(pixels[i])) > thresh) {
+                    pixels[i] = rgb(255, 0, 0); // over write the pixel with pure green
+                    count_COM = count_COM + i;
+                    count = count + 1;
+                }
+            }
+
+            // update the row
+            bmp.setPixels(pixels, 0, bmp.getWidth(), 0, startY, bmp.getWidth(), 1);
+
+
+            if (count > 5) {
+
+                COM = count_COM / count;
+            }
+            else{
+                COM = bmp.getWidth()/2;
+            }
 
             String sendString = String.valueOf(COM) + '\n';
             try {
                 sPort.write(sendString.getBytes(), 10); // 10 is the timeout
-            } catch (IOException e) { }
-
-
-
-                // update the row
-                //bmp.setPixels(pixels, 0, bmp.getWidth(), 0, j, bmp.getWidth(), 1);
+            } catch (IOException e) {
             }
 
 
+            // draw a circle at some position
+            int pos = 50;
+            canvas.drawCircle(pos, 240, 5, paint1); // x position, y position, diameter, color
 
+            // write the pos as text
+            canvas.drawText("COM = " + COM, 10, 200, paint1);
+            //canvas.drawText("r = " + pos, 10, 200, paint1);
+            c.drawBitmap(bmp, 0, 0, null);
+            mSurfaceHolder.unlockCanvasAndPost(c);
 
-        // draw a circle at some position
-        int pos = 50;
-        canvas.drawCircle(pos, 240, 5, paint1); // x position, y position, diameter, color
-
-        // write the pos as text
-        canvas.drawText("COM = " + pos, 10, 200, paint1);
-        //canvas.drawText("r = " + pos, 10, 200, paint1);
-        c.drawBitmap(bmp, 0, 0, null);
-        mSurfaceHolder.unlockCanvasAndPost(c);
-
-        // calculate the FPS to see how fast the code is running
-        long nowtime = System.currentTimeMillis();
-        long diff = nowtime - prevtime;
-        mTextView.setText("FPS " + 1000 / diff);
-        prevtime = nowtime;
+            // calculate the FPS to see how fast the code is running
+            long nowtime = System.currentTimeMillis();
+            long diff = nowtime - prevtime;
+            mTextView.setText("FPS " + 1000 / diff);
+            prevtime = nowtime;
+        }
     }
-}
